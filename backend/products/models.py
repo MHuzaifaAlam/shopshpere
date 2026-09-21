@@ -1,6 +1,6 @@
 from django.db import models
 
-class Catageory(models.Model):
+class Categeory(models.Model):
 
     name= models.CharField(max_length=100,unique=True)
     slug=models.SlugField(unique=True)
@@ -14,8 +14,8 @@ class Catageory(models.Model):
         return self.name
 
 class Product(models.Model):
-    catageory=models.ForeignKey(
-        Catageory,
+    category=models.ForeignKey(
+        Categeory,
         on_delete=models.CASCADE,
         related_name="products"    
         )
@@ -29,6 +29,20 @@ class Product(models.Model):
     updated_at=models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering=["created_at"]
+        ordering=["-created_at"]
     def __str__(self):
-        return self.created_at
+        return self.name
+
+class ProductImage(models.Model):
+    product=models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="images"
+    )
+    image=models.ImageField(upload_to="products/")
+    alt_text=models.CharField(max_length=255,blank=True)
+    is_primary=models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.product.name} Image"
