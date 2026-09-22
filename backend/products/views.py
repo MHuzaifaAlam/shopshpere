@@ -1,11 +1,21 @@
 from rest_framework import generics
-from .models import Product
-from .serializers import ProductSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+
+from .models import Product, ProductImage
+from .serializers import ProductSerializer, ProductImageSerializer
+
 
 class ProductListCreateView(generics.ListCreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
 
+
 class ProductDetailViewS(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+
+
+class ProductImageCreateView(generics.CreateAPIView):
+    queryset = ProductImage.objects.all()
+    serializer_class = ProductImageSerializer
+    parser_classes = [MultiPartParser, FormParser]
