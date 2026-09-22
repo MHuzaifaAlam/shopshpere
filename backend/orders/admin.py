@@ -9,8 +9,6 @@ class OrderItemInline(admin.TabularInline):
 class OrderAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "user",
-        "total_amount",
         "status",
         "created_at",
     )
