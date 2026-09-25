@@ -27,6 +27,12 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def total_amount(self):
+        return sum(
+            item.price * item.quantity
+            for item in self.items.all()
+        )
     def __str__(self):
         return f"Order #{self.id} - {self.customer.username} - {self.status}"
 
