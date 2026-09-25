@@ -2,7 +2,7 @@ from rest_framework import generics,serializers
 from .models import Order,OrderItem
 from .serializers import OrderSerializer, OrderItemSerializer
 from rest_framework.permissions import IsAuthenticated
-
+from django.db import transaction
 
 class OrderListCreateView(generics.ListCreateAPIView):
     queryset = Order.objects.all()
@@ -33,9 +33,32 @@ class OrderItemCreateView(generics.CreateAPIView):
             raise serializers.ValidationError(
                 "You can only add items to your own orders."
             )
+        if not product.is_active:
+            raise serializers.ValidationError(
+                f"The product {product.name} is not available for purchase."
+            )
+        if quantity > product.stock:
+            raise serializers.ValidationError(  
+                
+                f"Only {product.stock} units of {product.name} are available."
+            )
+            with transaction.atomic():
+                    product=(
+                        product.__class__ .objects
+                        .select_for_update()
+                        .get(pk=product.pk)
+                    )
+            if quantity>product.stock:
+                raise serializers.ValidationError(
+                    f"Only {product.stock} units of {product.name} are available."
+                )
+            
+              
         if quantity>product.stock:
             raise serializers.ValidationError(
                 f"Only {product.stock} units of {product.name} are available."
             )
+        product.stock -= quantity
+        product.save(update_fields=["stock"])
         serializer.save(price=product.price)
 
