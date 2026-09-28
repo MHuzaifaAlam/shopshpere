@@ -1,4 +1,9 @@
-from rest_framework import generics,serializers
+from rest_framework import generics, serializers
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from django.db import transaction
+
 from .models import Order, OrderItem, Cart, CartItem
 from .serializers import (
     OrderSerializer,
@@ -6,25 +11,32 @@ from .serializers import (
     CartSerializer,
     CartItemSerializer,
 )
-from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
-from rest_framework.response import Response
+
 
 class OrderListCreateView(generics.ListCreateAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes=[IsAuthenticated]
+    permission_classes = [IsAuthenticated]
+
     def get_queryset(self):
-        return Order.objects.filter(customer=self.request.user)
+        return Order.objects.filter(
+            customer=self.request.user
+        )
 
     def perform_create(self, serializer):
-        return serializer.save(customer=self.request.user)
-    
+        return serializer.save(
+            customer=self.request.user
+        )
+
+
 class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = OrderSerializer
-    permission_classes=[IsAuthenticated]
+    permission_classes = [IsAuthenticated]
+
     def get_queryset(self):
-        return Order.objects.filter(customer=self.request.user)
+        return Order.objects.filter(
+            customer=self.request.user
+        )
 
 
 class OrderItemCreateView(generics.CreateAPIView):
@@ -56,13 +68,19 @@ class OrderItemCreateView(generics.CreateAPIView):
 
             if quantity > product.stock:
                 raise serializers.ValidationError(
-                    f"Only {product.stock} units of {product.name} are available."
+                    f"Only {product.stock} units of "
+                    f"{product.name} are available."
                 )
 
             product.stock -= quantity
-            product.save(update_fields=["stock"])
+            product.save(
+                update_fields=["stock"]
+            )
 
-            serializer.save(price=product.price)
+            serializer.save(
+                price=product.price
+            )
+
 
 class CartView(generics.RetrieveAPIView):
     serializer_class = CartSerializer
@@ -72,7 +90,9 @@ class CartView(generics.RetrieveAPIView):
         cart, created = Cart.objects.get_or_create(
             user=self.request.user
         )
+
         return cart
+
 
 class CartItemCreateView(generics.CreateAPIView):
     serializer_class = CartItemSerializer
@@ -108,17 +128,23 @@ class CartItemCreateView(generics.CreateAPIView):
         # Check stock
         if new_quantity > product.stock:
             raise serializers.ValidationError(
-                f"Only {product.stock} units of {product.name} are available."
+                f"Only {product.stock} units of "
+                f"{product.name} are available."
             )
 
         # Update existing item
         if cart_item:
             cart_item.quantity = new_quantity
-            cart_item.save(update_fields=["quantity"])
+            cart_item.save(
+                update_fields=["quantity"]
+            )
 
         # Create new item
         else:
-            serializer.save(cart=cart)
+            serializer.save(
+                cart=cart
+            )
+
 
 class CartItemDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CartItemSerializer
@@ -131,6 +157,7 @@ class CartItemDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         cart_item = self.get_object()
+
         new_quantity = serializer.validated_data.get(
             "quantity",
             cart_item.quantity
@@ -144,63 +171,83 @@ class CartItemDetailView(generics.RetrieveUpdateDestroyAPIView):
 
         serializer.save()
 
-class CheckoutView(generics.CreateAPIView):
-    serializer_class=OrderSerializer
-    permission_classes=[IsAuthenticated]
 
-    def create(self,request,*args,**kwargs):
+class CheckoutView(generics.CreateAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+
         with transaction.atomic():
-            cart = Cart.objects.select_for_update().filter(
-                user=request.user
-            ).first()
-            
+
+            # Get and lock the user's cart
+            cart = (
+                Cart.objects
+                .select_for_update()
+                .filter(user=request.user)
+                .first()
+            )
+
             if not cart:
                 raise serializers.ValidationError(
-                    "Your cart doesnot Exist."
-                )    
-            cart_items=list(
+                    "Your cart does not exist."
+                )
+
+            # Get cart items
+            cart_items = list(
                 cart.items.select_related("product")
             )
 
             if not cart_items:
                 raise serializers.ValidationError(
-                    "Your Cart is Empty"
+                    "Your cart is empty."
                 )
-            # Lock  All the products involved in checkout
-            product_ids = [item.product_id for item in cart_items]
 
-            products={
-                product.id : product
+            # Lock all products involved in checkout
+            product_ids = [
+                item.product_id
+                for item in cart_items
+            ]
+
+            products = {
+                product.id: product
                 for product in (
                     cart_items[0]
-                    .product.__class__
-                    .objects
+                    .product.__class__.objects
                     .select_for_update()
                     .filter(id__in=product_ids)
                 )
             }
 
-            # Validate Stock
+            # Validate stock
             for cart_item in cart_items:
-                product = products[cart_item.product_id]
+
+                product = products[
+                    cart_item.product_id
+                ]
 
                 if not product.is_active:
                     raise serializers.ValidationError(
-                        f"{product.name} is no longer avilable ."
+                        f"{product.name} is no longer available."
                     )
+
                 if cart_item.quantity > product.stock:
                     raise serializers.ValidationError(
                         f"Only {product.stock} units of "
-                        f"{product.name} are avilable."
+                        f"{product.name} are available."
                     )
-            # Create Order
-            order=Order.objects.create(
+
+            # Create order
+            order = Order.objects.create(
                 customer=request.user
             )
 
-            # create Order items and reduce stock
+            # Create order items and reduce stock
             for cart_item in cart_items:
-                product=products[cart_item.product_id]
+
+                product = products[
+                    cart_item.product_id
+                ]
 
                 OrderItem.objects.create(
                     order=order,
@@ -210,10 +257,15 @@ class CheckoutView(generics.CreateAPIView):
                 )
 
                 product.stock -= cart_item.quantity
-                product.save(update_feilds=["stock"])
 
+                product.save(
+                    update_fields=["stock"]
+                )
+
+            # Empty the cart
             cart.items.all().delete()
 
+        # Serialize the newly created order
         serializer = self.get_serializer(order)
 
         return Response(
