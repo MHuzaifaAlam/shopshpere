@@ -8,6 +8,7 @@ from .serializers import (
 )
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from rest_framework.response import Response
 
 class OrderListCreateView(generics.ListCreateAPIView):
     queryset = Order.objects.all()
@@ -142,3 +143,80 @@ class CartItemDetailView(generics.RetrieveUpdateDestroyAPIView):
             )
 
         serializer.save()
+
+class CheckoutView(generics.CreateAPIView):
+    serializer_class=OrderSerializer
+    permission_classes=[IsAuthenticated]
+
+    def create(self,request,*args,**kwargs):
+        with transaction.atomic():
+            cart = Cart.objects.select_for_update().filter(
+                user=request.user
+            ).first()
+            
+            if not cart:
+                raise serializers.ValidationError(
+                    "Your cart doesnot Exist."
+                )    
+            cart_items=list(
+                cart.items.select_related("product")
+            )
+
+            if not cart_items:
+                raise serializers.ValidationError(
+                    "Your Cart is Empty"
+                )
+            # Lock  All the products involved in checkout
+            product_ids = [item.product_id for item in cart_items]
+
+            products={
+                product.id : product
+                for product in (
+                    cart_items[0]
+                    .product.__class__
+                    .objects
+                    .select_for_update()
+                    .filter(id__in=product_ids)
+                )
+            }
+
+            # Validate Stock
+            for cart_item in cart_items:
+                product = products[cart_item.product_id]
+
+                if not product.is_active:
+                    raise serializers.ValidationError(
+                        f"{product.name} is no longer avilable ."
+                    )
+                if cart_item.quantity > product.stock:
+                    raise serializers.ValidationError(
+                        f"Only {product.stock} units of "
+                        f"{product.name} are avilable."
+                    )
+            # Create Order
+            order=Order.objects.create(
+                customer=request.user
+            )
+
+            # create Order items and reduce stock
+            for cart_item in cart_items:
+                product=products[cart_item.product_id]
+
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=cart_item.quantity,
+                    price=product.price,
+                )
+
+                product.stock -= cart_item.quantity
+                product.save(update_feilds=["stock"])
+
+            cart.items.all().delete()
+
+        serializer = self.get_serializer(order)
+
+        return Response(
+            serializer.data,
+            status=201
+        )
