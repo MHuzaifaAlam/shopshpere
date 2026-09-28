@@ -120,22 +120,25 @@ class CartItemCreateView(generics.CreateAPIView):
             serializer.save(cart=cart)
 
 class CartItemDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class=CartItemSerializer
-    permission_classes=[IsAuthenticated]
+    serializer_class = CartItemSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return CartItem.objects.filter(
-            cart_user=self.request.user
-            )
-    def perform_update(self,serializer):
-        cart_item=self.get_object()
-        new_quantity= serializer.Validate_data.get(
+            cart__user=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        cart_item = self.get_object()
+        new_quantity = serializer.validated_data.get(
             "quantity",
             cart_item.quantity
         )
+
         if new_quantity > cart_item.product.stock:
             raise serializers.ValidationError(
-                f"Only{cart_item.product.stock} units of"
-                f"{cart_item.product.name} are avilable"
+                f"Only {cart_item.product.stock} units of "
+                f"{cart_item.product.name} are available."
             )
+
         serializer.save()
