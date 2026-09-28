@@ -19,22 +19,23 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['id','customer', 'created_at','updated_at', 'total_amount']
 
 class CartItemSerializer(serializers.ModelSerializer):
-    product_name=serializers.CharField(
+    product_name = serializers.CharField(
         source="product.name",
         read_only=True
     )
-    product_price=serializers.DecimalField(
+
+    product_price = serializers.DecimalField(
         source="product.price",
         max_digits=10,
         decimal_places=2,
         read_only=True
     )
 
-    subtotal=serializers.SerializerMethodField()
+    subtotal = serializers.SerializerMethodField()
 
     class Meta:
-        model=CartItem
-        feilds=[
+        model = CartItem
+        fields = [
             "id",
             "product",
             "product_name",
@@ -42,16 +43,16 @@ class CartItemSerializer(serializers.ModelSerializer):
             "quantity",
             "subtotal",
         ]
-        read_only_feilds=[
+        read_only_fields = [
             "id",
             "product_name",
             "product_price",
             "subtotal",
         ]
 
-        def get_subtotal(self,obj):
-            return obj.product.price * obj.quantity
-
+    def get_subtotal(self, obj):
+        return obj.product.price * obj.quantity
+    
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(
         many=True,
