@@ -1,6 +1,6 @@
 from rest_framework import generics,serializers
-from .models import Order,OrderItem
-from .serializers import OrderSerializer, OrderItemSerializer
+from .models import Order,OrderItem,Cart
+from .serializers import OrderSerializer, OrderItemSerializer,CartSerializer
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 
@@ -28,37 +28,42 @@ class OrderItemCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         order = serializer.validated_data.get("order")
         product = serializer.validated_data.get("product")
-        quantity=serializer.validated_data.get("quantity")
+        quantity = serializer.validated_data.get("quantity")
+
         if order.customer != self.request.user:
             raise serializers.ValidationError(
                 "You can only add items to your own orders."
             )
+
         if not product.is_active:
             raise serializers.ValidationError(
                 f"The product {product.name} is not available for purchase."
             )
-        if quantity > product.stock:
-            raise serializers.ValidationError(  
-                
-                f"Only {product.stock} units of {product.name} are available."
+
+        with transaction.atomic():
+
+            product = (
+                product.__class__.objects
+                .select_for_update()
+                .get(pk=product.pk)
             )
-            with transaction.atomic():
-                    product=(
-                        product.__class__ .objects
-                        .select_for_update()
-                        .get(pk=product.pk)
-                    )
-            if quantity>product.stock:
+
+            if quantity > product.stock:
                 raise serializers.ValidationError(
                     f"Only {product.stock} units of {product.name} are available."
                 )
-            
-              
-        if quantity>product.stock:
-            raise serializers.ValidationError(
-                f"Only {product.stock} units of {product.name} are available."
-            )
-        product.stock -= quantity
-        product.save(update_fields=["stock"])
-        serializer.save(price=product.price)
 
+            product.stock -= quantity
+            product.save(update_fields=["stock"])
+
+            serializer.save(price=product.price)
+            
+class CartView(generics.RetrieveAPIView):
+    serializer_class = CartSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        cart, created = Cart.objects.get_or_create(
+            user=self.request.user
+        )
+        return cart

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Order, OrderItem,Cart,CartItem
-
+from decimal import Decimal
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
@@ -53,28 +53,37 @@ class CartItemSerializer(serializers.ModelSerializer):
             return obj.product.price * obj.quantity
 
 class CartSerializer(serializers.ModelSerializer):
-    items=CartItemSerializer(
+    items = CartItemSerializer(
         many=True,
         read_only=True
     )
 
-    total_amount=serializers.SerializerMethodField()
+    total_amount = serializers.SerializerMethodField()
 
     class Meta:
-        model=Cart
-        feilds=[
+        model = Cart
+        fields = [
             "id",
-            "product_name",
-            "product_price",
-            "quantity",
-            "subtotal",
-
-                            ]
-        read_only_feilds=[
-            "id",
-            "product_name",
-            "product_price",
-            "subtotal",
+            "user",
+            "items",
+            "total_amount",
+            "created_at",
+            "updated_at",
         ]
-    def get_subtotal(self,obj):
-        return obj.product.price*obj.quantity
+        read_only_fields = [
+            "id",
+            "user",
+            "items",
+            "total_amount",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_total_amount(self, obj):
+        return sum(
+            (
+                item.product.price * item.quantity
+                for item in obj.items.all()
+            ),
+            Decimal("0.00")
+        )
