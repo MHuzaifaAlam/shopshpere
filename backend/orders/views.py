@@ -25,7 +25,7 @@ class OrderListCreateView(generics.ListAPIView):
 
 
 
-class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
+class OrderDetailView(generics.RetrieveAPIView):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
@@ -34,48 +34,6 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
             customer=self.request.user
         )
 
-
-class OrderItemCreateView(generics.CreateAPIView):
-    serializer_class = OrderItemSerializer
-    permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        order = serializer.validated_data.get("order")
-        product = serializer.validated_data.get("product")
-        quantity = serializer.validated_data.get("quantity")
-
-        if order.customer != self.request.user:
-            raise serializers.ValidationError(
-                "You can only add items to your own orders."
-            )
-
-        if not product.is_active:
-            raise serializers.ValidationError(
-                f"The product {product.name} is not available for purchase."
-            )
-
-        with transaction.atomic():
-
-            product = (
-                product.__class__.objects
-                .select_for_update()
-                .get(pk=product.pk)
-            )
-
-            if quantity > product.stock:
-                raise serializers.ValidationError(
-                    f"Only {product.stock} units of "
-                    f"{product.name} are available."
-                )
-
-            product.stock -= quantity
-            product.save(
-                update_fields=["stock"]
-            )
-
-            serializer.save(
-                price=product.price
-            )
 
 
 class CartView(generics.RetrieveAPIView):
