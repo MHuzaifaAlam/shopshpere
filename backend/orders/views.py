@@ -273,7 +273,8 @@ class CheckoutView(generics.CreateAPIView):
             status=201
         )
 
-class OrderCancelView(generics.UpdateAPIView):
+
+class OrderCancelView(generics.GenericAPIView):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
@@ -282,7 +283,7 @@ class OrderCancelView(generics.UpdateAPIView):
             customer=self.request.user
         )
 
-    def update(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
 
         with transaction.atomic():
 
