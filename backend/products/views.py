@@ -8,15 +8,19 @@ from .serializers import (
     CategorySerializer
     )
 
+from .permissions import IsStaffUserOrReadOnly
+
 
 class ProductListCreateView(generics.ListCreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    permission_classes=[IsStaffUserOrReadOnly]
 
 
 class ProductDetailViewS(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    permission_classes=[IsStaffUserOrReadOnly]
 
 
 class ProductImageCreateView(generics.CreateAPIView):
