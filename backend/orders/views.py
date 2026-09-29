@@ -272,3 +272,66 @@ class CheckoutView(generics.CreateAPIView):
             serializer.data,
             status=201
         )
+
+class OrderCancelView(generics.UpdateAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Order.objects.filter(
+            customer=self.request.user
+        )
+
+    def update(self, request, *args, **kwargs):
+
+        with transaction.atomic():
+
+            order = (
+                Order.objects
+                .select_for_update()
+                .prefetch_related("items__product")
+                .filter(
+                    id=kwargs["pk"],
+                    customer=request.user
+                )
+                .first()
+            )
+
+            if not order:
+                raise serializers.ValidationError(
+                    "Order not found."
+                )
+
+            if order.status != Order.Status.PENDING:
+                raise serializers.ValidationError(
+                    "Only pending orders can be cancelled."
+                )
+
+            # Restore stock
+            for order_item in order.items.all():
+
+                product = (
+                    order_item.product.__class__.objects
+                    .select_for_update()
+                    .get(pk=order_item.product_id)
+                )
+
+                product.stock += order_item.quantity
+
+                product.save(
+                    update_fields=["stock"]
+                )
+
+            # Cancel order
+            order.status = Order.Status.CANCELLED
+
+            order.save(
+                update_fields=["status", "updated_at"]
+            )
+
+        serializer = self.get_serializer(order)
+
+        return Response(
+            serializer.data,
+            status=200
+        )

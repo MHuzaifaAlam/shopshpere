@@ -6,7 +6,8 @@ from .views import (
     CartView,
     CartItemCreateView,
     CartItemDetailView,
-    CheckoutView
+    CheckoutView,
+    OrderCancelView
 )
 urlpatterns = [
     path('', OrderListCreateView.as_view(), name='order-list-create'), 
@@ -16,6 +17,8 @@ urlpatterns = [
     path('cart/items/',CartItemCreateView.as_view(),name="cart-Item-create"),
     path('cart/items/<int:pk>/',CartItemDetailView.as_view(),name="cart-item-detail"),
 
+    path('<int:pk>',OrderCancelView.as_view(),name="order-detail"),
+    
     path('checkout/',CheckoutView.as_view(),name="checkout"),
     path('<int:pk>/',OrderDetailView.as_view(), name='order-detail'),
 ]
