@@ -88,3 +88,8 @@ class CartSerializer(serializers.ModelSerializer):
             ),
             Decimal("0.00")
         )
+    
+class OrderStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(
+        choices = Order.Status.choices
+    )

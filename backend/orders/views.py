@@ -7,11 +7,12 @@ from django.db import transaction
 from .models import Order, OrderItem, Cart, CartItem
 from .serializers import (
     OrderSerializer,
-    OrderItemSerializer,
     CartSerializer,
     CartItemSerializer,
+    OrderStatusSerializer
 )
 
+from .permissions import IsStaffUser
 
 class OrderListCreateView(generics.ListAPIView):
     queryset = Order.objects.all()
@@ -288,5 +289,72 @@ class OrderCancelView(generics.GenericAPIView):
 
         return Response(
             serializer.data,
+            status=200
+        )
+
+class OrderStatusUpdateView(generics.GenericAPIView):
+    serializer_class = OrderStatusSerializer
+    permission_classes = [
+        IsAuthenticated,
+        IsStaffUser,
+    ]
+
+    def get_queryset(self):
+        return Order.objects.all()
+
+    def patch(self, request, *args, **kwargs):
+
+        order = self.get_queryset().filter(
+            pk=kwargs["pk"]
+        ).first()
+
+        if not order:
+            raise serializers.ValidationError(
+                "Order not found."
+            )
+
+        serializer = self.get_serializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        new_status = serializer.validated_data["status"]
+        current_status = order.status
+
+        allowed_transitions = {
+            Order.Status.PENDING: [
+                Order.Status.PROCESSING,
+                Order.Status.CANCELLED,
+            ],
+            Order.Status.PROCESSING: [
+                Order.Status.SHIPPED,
+            ],
+            Order.Status.SHIPPED: [
+                Order.Status.DELIVERED,
+            ],
+            Order.Status.DELIVERED: [],
+            Order.Status.CANCELLED: [],
+        }
+
+        if new_status not in allowed_transitions[current_status]:
+            raise serializers.ValidationError(
+                f"Cannot change order status "
+                f"from '{current_status}' "
+                f"to '{new_status}'."
+            )
+
+        order.status = new_status
+        order.save(
+            update_fields=[
+                "status",
+                "updated_at",
+            ]
+        )
+
+        response_serializer = OrderSerializer(order)
+
+        return Response(
+            response_serializer.data,
             status=200
         )
