@@ -13,7 +13,7 @@ from .serializers import (
 )
 
 
-class OrderListCreateView(generics.ListCreateAPIView):
+class OrderListCreateView(generics.ListAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
@@ -23,10 +23,6 @@ class OrderListCreateView(generics.ListCreateAPIView):
             customer=self.request.user
         )
 
-    def perform_create(self, serializer):
-        return serializer.save(
-            customer=self.request.user
-        )
 
 
 class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
