@@ -3,7 +3,9 @@ from django.urls import path
 from .views import (
     ProductListCreateView,
     ProductDetailViewS,
+    SeedDemoProductsView,
     ProductImageCreateView,
+    ProductImageDetailView,
     CategoryListCreateView,
     CategoryDetailView,
 )
@@ -28,6 +30,18 @@ urlpatterns = [
         "images/",
         ProductImageCreateView.as_view(),
         name="product-image-create"
+    ),
+
+    path(
+        "images/<int:pk>/",
+        ProductImageDetailView.as_view(),
+        name="product-image-detail"
+    ),
+
+    path(
+        "seed-demo/",
+        SeedDemoProductsView.as_view(),
+        name="seed-demo-products"
     ),
 
     # Products

@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from django.db import transaction
+from django.db.models import Q
 
 from .models import Order, OrderItem, Cart, CartItem
 from .serializers import (
@@ -12,25 +13,36 @@ from .serializers import (
     OrderStatusSerializer
 )
 
-from .permissions import IsStaffUser
+from .permissions import HasOrderChangePermission, IsStaffOrOrderOwnerReadOnly, IsStaffUser
 
 class OrderListCreateView(generics.ListAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrOrderOwnerReadOnly]
 
     def get_queryset(self):
         if self.request.user.is_staff:
-            return Order.objects.all()
+            queryset = Order.objects.all()
+            status_filter = self.request.query_params.get('status')
+            search = self.request.query_params.get('search', '').strip()
+            if status_filter:
+                queryset = queryset.filter(status=status_filter)
+            if search:
+                queryset = queryset.filter(
+                    Q(customer__username__icontains=search)
+                    | Q(customer__email__icontains=search)
+                    | Q(pk__icontains=search)
+                )
+            return queryset.select_related('customer').prefetch_related('items__product')
 
         return Order.objects.filter(
             customer=self.request.user
-        )
+        ).select_related('customer').prefetch_related('items__product')
 
 
 class OrderDetailView(generics.RetrieveAPIView):
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffOrOrderOwnerReadOnly]
 
     def get_queryset(self):
         if self.request.user.is_staff:
@@ -298,10 +310,11 @@ class OrderCancelView(generics.GenericAPIView):
         )
 
 class OrderStatusUpdateView(generics.GenericAPIView):
+    model = Order
     serializer_class = OrderStatusSerializer
     permission_classes = [
         IsAuthenticated,
-        IsStaffUser,
+        HasOrderChangePermission,
     ]
 
     def get_queryset(self):

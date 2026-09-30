@@ -2,20 +2,24 @@ from rest_framework import serializers
 from .models import Order, OrderItem,Cart,CartItem
 from decimal import Decimal
 class OrderItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+
     class Meta:
         model = OrderItem
-        fields = ['id','order', 'product', 'quantity', 'price']
+        fields = ['id','order', 'product', 'product_name', 'quantity', 'price']
         read_only_fields = ['id',"price"]
 
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    customer_username = serializers.CharField(source='customer.username', read_only=True)
+    customer_email = serializers.EmailField(source='customer.email', read_only=True)
     def total_amount(self, obj):
         return obj.total_amount   
 
     class Meta:
         model = Order
-        fields = ['id', 'customer', 'status', 'items','total_amount', 'created_at', 'updated_at']
+        fields = ['id', 'customer', 'customer_username', 'customer_email', 'status', 'items','total_amount', 'created_at', 'updated_at']
         read_only_fields = ['id','customer', 'created_at','updated_at', 'total_amount']
 
 class CartItemSerializer(serializers.ModelSerializer):

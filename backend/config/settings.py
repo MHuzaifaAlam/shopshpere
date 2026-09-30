@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,6 +31,13 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5174',
+]
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^http://localhost:\d+$',
+    r'^http://127\.0\.0\.1:\d+$',
 ]
 
 
@@ -83,16 +91,26 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-      "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "shopsphere",
-        "USER": "shopsphere_user",
-        "PASSWORD": "Test1122",
-        "HOST": "localhost",
-        "PORT": "5432",
-      }
-}
+USE_SQLITE = os.getenv('USE_SQLITE', '0') == '1'
+
+if USE_SQLITE:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'shopsphere'),
+            'USER': os.getenv('DB_USER', 'shopsphere_user'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'Test1122'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
+    }
 
 
 # Password validation

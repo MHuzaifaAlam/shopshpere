@@ -15,6 +15,13 @@ class ProductImageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        image_name = str(instance.image.name)
+        if image_name.startswith(('http://', 'https://')):
+            representation['image'] = image_name
+        return representation
+
 
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
