@@ -20,10 +20,12 @@ class OrderListCreateView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if self.request.user.is_staff:
+            return Order.objects.all()
+
         return Order.objects.filter(
             customer=self.request.user
         )
-
 
 
 class OrderDetailView(generics.RetrieveAPIView):
@@ -31,6 +33,9 @@ class OrderDetailView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if self.request.user.is_staff:
+            return Order.objects.all()
+
         return Order.objects.filter(
             customer=self.request.user
         )
